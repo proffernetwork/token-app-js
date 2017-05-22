@@ -5,6 +5,9 @@ const pg = require('pg');
 const Config = require('./Config');
 const Session = require('./Session');
 const Logger = require('./Logger');
+const Wallet = require('./Wallet');
+const EthService = require('./EthService');
+const IdService = require('./IdService');
 
 const JSONRPC_VERSION = '2.0';
 const JSONRPC_REQUEST_CHANNEL = '_rpc_request';
@@ -18,6 +21,10 @@ class Client {
 
     this.config = new Config(process.argv[2]);
     console.log("Address: "+this.config.address);
+
+    let wallet = new Wallet(process.env["TOKEN_APP_SEED"]);
+    let token_id_key = wallet.derive_path("m/0'/1/0");
+    let payment_address_key = wallet.derive_path("m/0'/0/0");
 
     let params = url.parse(this.config.postgres.url);
     let auth = params.auth.split(':');
@@ -108,6 +115,33 @@ class Client {
       }
     })
     this.rpcSubscriber.subscribe(this.config.address+JSONRPC_RESPONSE_CHANNEL);
+
+    // eth service monitoring
+    this.eth = new EthService(token_id_key);
+    this.id = new IdService(token_id_key);
+    this.eth.subscribe(payment_address_key.address, (sofa) => {
+      let fut;
+      if (sofa.fromAddress == payment_address_key.address) {
+        // updating a payment sent from the bot
+        fut = this.id.paymentAddressLookup(sofa.toAddress);
+      } else if (sofa.toAddress == payment_address_key.address) {
+        // updating a payment sent to the bot
+        fut = this.id.paymentAddressLookup(sofa.fromAddress);
+      } else {
+        // this isn't actually interesting to us
+        console.log('no matching addresses!');
+        return;
+      }
+      fut.then((sender) => {
+        // TODO: handle null session better?
+        if (!sender) sender = "anonymous";
+        let session = new Session(this.bot, this.pgPool, this.config, sender, () => {
+          // TODO: send this somewhere!
+          //this.bot.onClientMessage(session, sofa);
+        });
+      });
+
+    });
   }
 
   send(address, message) {

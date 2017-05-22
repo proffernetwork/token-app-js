@@ -87,6 +87,10 @@ class Session {
   }
 
   sendWei(value, callback) {
+    if (this.address == 'anonymous') {
+      if (callback) { callback(this, "Cannot send transactions to anonymous session", null); }
+      return;
+    }
     this.bot.client.rpc(this, {
       method: "sendTransaction",
       params: {
