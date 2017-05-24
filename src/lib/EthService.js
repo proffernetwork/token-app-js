@@ -60,9 +60,7 @@ class EthService {
       this.ws.on('message', (message) => {
         message = JSON.parse(message);
         if (message['method'] && message['method'] == 'subscription') {
-          let sofa = SOFA.parse(message['params']['message']);
-          Logger.receivedMessage(sofa);
-          callback(sofa);
+          callback(message['params']['message']);
         }
       });
     }

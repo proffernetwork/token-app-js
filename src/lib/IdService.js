@@ -17,7 +17,7 @@ class IdService {
     this.client = new ServiceClient(signing_key);
   }
 
-  paymentAddressLookup(address) {
+  paymentAddressReverseLookup(address) {
     // TODO: address lookup cache
     return this.client.fetch({
       url: getUrl('/v1/search/user?payment_address=' + address),
