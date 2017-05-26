@@ -15,6 +15,124 @@ function getUrl(path, proto) {
   return endpoint + path;
 }
 
+class WebsocketClient {
+  constructor(signing_key) {
+    this.signing_key = signing_key;
+    this.ws = null;
+    this.subscriptions = {};
+    this.last_timestamp = 0;
+    this.jsonrpc_id = 0;
+  }
+
+  connect() {
+    if (this.ws) {
+      try {
+        this.ws.ping();
+        // if this is fine the connection is already open
+      } catch (e) {
+        // otherwise we need to open another connection
+        this.ws.terminate();
+        this.ws = null;
+        this._connected = false;
+      }
+    }
+    let timestamp = parseInt(new Date().getTime() / 1000);
+    // don't spam connections when reconnecting fails
+    if (timestamp - this.last_timestamp < 5) {
+      setTimeout(this.connect.bind(this), (5 - (timestamp - this.last_timestamp)) * 1000);
+      return;
+    } else {
+      this.last_timestamp = timestamp;
+    }
+    let data =
+        "GET" + "\n" +
+        "/v1/ws" + "\n" +
+        timestamp + "\n";
+    let sig = this.signing_key.sign(data);
+    this.ws = new WebSocket(getUrl('/v1/ws', 'wss'), [], {
+      headers: {
+        'Token-ID-Address': this.signing_key.address,
+        'Token-Timestamp': timestamp,
+        'Token-Signature': sig
+      }
+    });
+    this.ws.on('open', this.subscribe.bind(this));
+    this.ws.on('message', this.handle_message.bind(this));
+    this.ws.on('close', this.handle_close.bind(this));
+    this.ws.on('error', this.handle_error.bind(this));
+  }
+
+  subscribe(address, callback) {
+    if (address) {
+      if (!callback) {
+        throw Exception("Expected callback passed to subscibe");
+      }
+      if (!(address in this.subscriptions)) {
+        this.subscriptions[address] = [];
+        if (this._connected) {
+          var jsonrpcid = this.jsonrpc_id = this.jsonrpc_id + 1;
+          var message = JSON.stringify({
+            "jsonrpc": "2.0",
+            "id": this.jsonrpc_id,
+            "method": "subscribe",
+            "params": address
+          });
+          this.ws.send(message);
+        }
+      }
+      if (this.subscriptions[address].indexOf(callback) == -1) {
+        this.subscriptions[address].push(callback);
+      }
+    } else {
+      this._connected = true;
+      // reconnecting, resubscribe to all!
+      var jsonrpcid = this.jsonrpc_id = this.jsonrpc_id + 1;
+      var message = JSON.stringify({
+        "jsonrpc": "2.0",
+        "id": this.jsonrpc_id,
+        "method": "subscribe",
+        "params": Object.keys(this.subscriptions)
+      });
+      this.ws.send(message);
+    }
+  }
+
+  handle_message(message) {
+    message = JSON.parse(message);
+    if (message['method'] && message['method'] == 'subscription') {
+      let address = message['params']['subscription'];
+      if (address in this.subscriptions) {
+        for (var i = 0; i < this.subscriptions[address].length; i++) {
+          let cb = this.subscriptions[address][i];
+          cb(message['params']['message']);
+        }
+      }
+    }
+  }
+
+  handle_close() {
+    this.maybe_reconnect();
+  }
+
+  handle_error(e) {
+    // captures unexpected errors that the websocket library
+    // cannot handle gracefully (e.g. websocket server going down)
+    console.log("Websocket Error");
+    this.maybe_reconnect();
+  }
+
+  maybe_reconnect() {
+    this._connected = false;
+    // only try reconnect if there is a `this.ws` otherwise we get in a look
+    if (this.ws) {
+      let oldws = this.ws;
+      this.ws = null;
+      oldws.terminate();
+      this.connect();
+    }
+  }
+}
+
 class EthService {
   static getBalance(address) {
     return rp(getUrl('/v1/balance/' + address))
@@ -32,37 +150,11 @@ class EthService {
   }
 
   subscribe(address, callback) {
+
     if (!this.ws) {
-      this.jsonrpc_id = 0;
-      let timestamp = parseInt(new Date().getTime() / 1000);
-      let data =
-          "GET" + "\n" +
-          "/v1/ws" + "\n" +
-          timestamp + "\n";
-      let sig = this.signing_key.sign(data);
-      this.ws = new WebSocket(getUrl('/v1/ws', 'wss'), [], {
-        headers: {
-          'Token-ID-Address': this.signing_key.address,
-          'Token-Timestamp': timestamp,
-          'Token-Signature': sig
-        }
-      });
-      this.ws.on('open', () => {
-        var jsonrpcid = this.jsonrpc_id = this.jsonrpc_id + 1;
-        var message = JSON.stringify({
-          "jsonrpc": "2.0",
-          "id": this.jsonrpc_id,
-          "method": "subscribe",
-          "params": [address]
-        });
-        this.ws.send(message);
-      });
-      this.ws.on('message', (message) => {
-        message = JSON.parse(message);
-        if (message['method'] && message['method'] == 'subscription') {
-          callback(message['params']['message']);
-        }
-      });
+      this.ws = new WebsocketClient(this.signing_key);
+      this.ws.connect();
+      this.ws.subscribe(address, callback);
     }
   }
 }
