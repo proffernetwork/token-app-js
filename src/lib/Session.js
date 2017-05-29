@@ -5,6 +5,7 @@ const pg = require('pg');
 const url = require('url')
 const unit = require('ethjs-unit');
 const SOFA = require('sofa-js');
+const EthService = require('./EthService')
 
 class Session {
   constructor(bot, pgPool, config, address, onReady) {
@@ -72,8 +73,24 @@ class Session {
     this.bot.client.send(this.address, message);
   }
 
+  balance(address) {
+    if (address) {
+      return EthService.getBalance(address);
+    } else {
+      return EthService.getBalance(this.config.paymentAddress);
+    }
+  }
+
   sendEth(value, callback) {
     value = '0x' + unit.toWei(value, 'ether').toString(16)
+    return sendWei(value, callback);
+  }
+
+  sendWei(value, callback) {
+    if (this.address == 'anonymous') {
+      if (callback) { callback(this, "Cannot send transactions to anonymous session", null); }
+      return;
+    }
     this.bot.client.rpc(this, {
       method: "sendTransaction",
       params: {

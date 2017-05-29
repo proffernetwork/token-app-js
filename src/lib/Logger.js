@@ -10,14 +10,21 @@ function mapLines(s, f) {
 class Logger {
 
   static sentMessage(sofa) {
+    if (!sofa) return Logger.error("Tried to send invalid SOFA message");
     Logger.log(Logger.colorPrefix('\u21D0          ', wrap(sofa.string, {width: 60, cut: true}), chalk.green, chalk.grey));
     Logger.log(Logger.color('\u21D0          ', sofa.display, chalk.green));
     Logger.log('\n');
   }
 
   static receivedMessage(sofa) {
+    if (!sofa) return Logger.error("Received invalid SOFA message");
     Logger.log(Logger.colorPrefix('\u21D2  ', wrap(sofa.string, {width: 60, cut: true}), chalk.yellow, chalk.grey));
     Logger.log(Logger.color('\u21D2  ', sofa.display, chalk.yellow));
+    Logger.log('\n');
+  }
+
+  static error(message) {
+    Logger.log(Logger.color('***  ', wrap(message, {width: 60, cut: true}), chalk.red));
     Logger.log('\n');
   }
 

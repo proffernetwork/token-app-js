@@ -5,6 +5,9 @@ const pg = require('pg');
 const Config = require('./Config');
 const Session = require('./Session');
 const Logger = require('./Logger');
+const Wallet = require('./Wallet');
+const EthService = require('./EthService');
+const IdService = require('./IdService');
 
 const JSONRPC_VERSION = '2.0';
 const JSONRPC_REQUEST_CHANNEL = '_rpc_request';
@@ -18,6 +21,10 @@ class Client {
 
     this.config = new Config(process.argv[2]);
     console.log("Address: "+this.config.address);
+
+    let wallet = new Wallet(process.env["TOKEN_APP_SEED"]);
+    let token_id_key = wallet.derive_path("m/0'/1/0");
+    let payment_address_key = wallet.derive_path("m/0'/0/0");
 
     let params = url.parse(this.config.postgres.url);
     let auth = params.auth.split(':');
@@ -73,15 +80,27 @@ class Client {
                 let heldSofa = SOFA.parse(held);
                 this.bot.onClientMessage(session, heldSofa);
               }
+            } else if (sofa.type == "InitRequest") {
+              // send through so bot authors have the option
+              // to allow their bot to talk to other bots
+              this.bot.onClientMessage(session, sofa);
             } else {
               if (!session.get('paymentAddress')) {
-                console.log('User has not sent Init message, sending InitRequest')
-                session.set('heldForInit', wrapped.sofa)
+                console.log('User has not sent Init message, sending InitRequest');
+                // since we don't register payment messages from untrusted
+                // sources, make sure we don't send it after an init either
+                if (sofa.type != 'Payment') {
+                  session.set('heldForInit', wrapped.sofa);
+                } else {
+                  console.log("Ignoring Payment message from untrusted source");
+                }
                 session.reply(SOFA.InitRequest({
                   values: ['paymentAddress', 'language']
                 }));
-              } else {
+              } else if (sofa.type != 'Payment') { // Only forward non payment types
                 this.bot.onClientMessage(session, sofa);
+              } else {
+                console.log("Ignoring Payment message from untrusted source");
               }
             }
 
@@ -108,6 +127,41 @@ class Client {
       }
     })
     this.rpcSubscriber.subscribe(this.config.address+JSONRPC_RESPONSE_CHANNEL);
+
+    // eth service monitoring
+    this.eth = new EthService(token_id_key);
+    this.id = new IdService(token_id_key);
+    this.eth.subscribe(payment_address_key.address, (raw_sofa) => {
+      let sofa = SOFA.parse(raw_sofa);
+      Logger.receivedMessage(sofa);
+      let fut;
+      if (sofa.fromAddress == payment_address_key.address) {
+        // updating a payment sent from the bot
+        fut = this.id.paymentAddressReverseLookup(sofa.toAddress);
+      } else if (sofa.toAddress == payment_address_key.address) {
+        // updating a payment sent to the bot
+        fut = this.id.paymentAddressReverseLookup(sofa.fromAddress);
+      } else {
+        // this isn't actually interesting to us
+        console.log('no matching addresses!');
+        return;
+      }
+      fut.then((sender) => {
+        // TODO: handle null session better?
+        if (!sender) sender = "anonymous";
+        let session = new Session(this.bot, this.pgPool, this.config, sender, () => {
+          if (!session.get('paymentAddress')) {
+            session.set('heldForInit', raw_sofa);
+            session.reply(SOFA.InitRequest({
+              values: ['paymentAddress', 'language']
+            }));
+          } else {
+            this.bot.onClientMessage(session, sofa);
+          }
+        });
+      });
+
+    });
   }
 
   send(address, message) {
