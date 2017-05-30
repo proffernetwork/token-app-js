@@ -1,13 +1,12 @@
 const redis = require('redis');
 const SOFA = require('sofa-js');
-const url = require('url')
-const pg = require('pg');
 const Config = require('./Config');
 const Session = require('./Session');
 const Logger = require('./Logger');
 const Wallet = require('./Wallet');
 const EthService = require('./EthService');
 const IdService = require('./IdService');
+const Storage = require('./Storage');
 
 const JSONRPC_VERSION = '2.0';
 const JSONRPC_REQUEST_CHANNEL = '_rpc_request';
@@ -26,21 +25,11 @@ class Client {
     let token_id_key = wallet.derive_path("m/0'/1/0");
     let payment_address_key = wallet.derive_path("m/0'/0/0");
 
-    let params = url.parse(this.config.postgres.url);
-    let auth = params.auth.split(':');
-    let pgConfig = {
-      user: auth[0],
-      password: auth[1],
-      host: params.hostname,
-      port: params.port,
-      database: params.pathname.split('/')[1],
-      max: 5,
-      idleTimeoutMillis: 30000
-    };
-    this.pgPool = new pg.Pool(pgConfig);
-    this.pgPool.on('error', function (err, client) {
-      console.error('idle client error', err.message, err.stack)
-    })
+    if (this.config.storage.postgres) {
+      this.store = new Storage.PSQLStore(this.config.storage.postgres);
+    } else if (this.config.storage.sqlite) {
+      this.store = new Storage.SqliteStore(this.config.storage.sqlite);
+    }
 
     let redisConfig = {
       host: this.config.redis.host,
@@ -66,7 +55,7 @@ class Client {
       try {
         let wrapped = JSON.parse(message);
         if (wrapped.recipient == this.config.address) {
-          let session = new Session(this.bot, this.pgPool, this.config, wrapped.sender, () => {
+          let session = new Session(this.bot, this.store, this.config, wrapped.sender, () => {
             let sofa = SOFA.parse(wrapped.sofa);
             Logger.receivedMessage(sofa);
 
@@ -118,7 +107,7 @@ class Client {
         if (message.jsonrpc == JSONRPC_VERSION) {
           let stored = this.rpcCalls[message.id];
           delete this.rpcCalls[message.id];
-          let session = new Session(this.bot, this.pgPool, this.config, stored.sessionAddress, () => {
+          let session = new Session(this.bot, this.store, this.config, stored.sessionAddress, () => {
             stored.callback(session, message.error, message.result);
           });
         }
@@ -149,7 +138,7 @@ class Client {
       fut.then((sender) => {
         // TODO: handle null session better?
         if (!sender) sender = "anonymous";
-        let session = new Session(this.bot, this.pgPool, this.config, sender, () => {
+        let session = new Session(this.bot, this.store, this.config, sender, () => {
           if (!session.get('paymentAddress')) {
             session.set('heldForInit', raw_sofa);
             session.reply(SOFA.InitRequest({

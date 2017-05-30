@@ -8,10 +8,10 @@ const SOFA = require('sofa-js');
 const EthService = require('./EthService')
 
 class Session {
-  constructor(bot, pgPool, config, address, onReady) {
+  constructor(bot, storage, config, address, onReady) {
     this.bot = bot;
     this.config = config;
-    this.pgPool = pgPool;
+    this.storage = storage;
 
     if (!fs.existsSync(this.config.store)) {
       mkdirp.sync(this.config.store);
@@ -121,45 +121,21 @@ class Session {
   }
 
   load(onReady) {
-    this.execute('SELECT * from bot_sessions WHERE eth_address = $1', [this.address], (err, result) => {
-      if (err) { console.log(err) }
-      if (!err && result.rows.length > 0) {
-        this.data = result.rows[0].data
-        if (this.data._thread) {
-          this.thread = this.bot.threads[this.data._thread];
-        }
-        if (this.data._state) {
-          this.state = this.data._state;
-        }
-      } else {
-        this.data = {
-          address: this.address
-        };
+    this.storage.loadBotSession(this.address, (data) => {
+      this.data = data;
+      if (this.data._thread) {
+        this.thread = this.bot.threads[this.data._thread];
       }
-      onReady()
+      if (this.data._state) {
+        this.state = this.data._state;
+      }
+      onReady();
     });
   }
 
   flush() {
     this.data.timestamp = Math.round(new Date().getTime()/1000);
-    let query =  `INSERT INTO bot_sessions (eth_address, data)
-                  VALUES ($1, $2)
-                  ON CONFLICT (eth_address) DO UPDATE
-                  SET data = $2`;
-    this.execute(query, [this.address, this.data], (err, result) => {
-      if (err) { console.log(err) }
-    })
-  }
-
-  execute(query, args, cb) {
-    this.pgPool.connect((err, client, done) => {
-      if (err) { return cb(err) }
-      client.query(query, args, (err, result) => {
-        done(err);
-        if (err) { return cb(err) }
-        cb(null, result);
-      })
-    })
+    this.storage.updateBotSession(this.address, this.data);
   }
 
   get json() {
