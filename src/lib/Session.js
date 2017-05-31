@@ -121,7 +121,7 @@ class Session {
   }
 
   load(onReady) {
-    this.storage.loadBotSession(this.address, (data) => {
+    this.storage.loadBotSession(this.address).then((data) => {
       this.data = data;
       if (this.data._thread) {
         this.thread = this.bot.threads[this.data._thread];
