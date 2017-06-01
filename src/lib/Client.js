@@ -59,9 +59,9 @@ class Client {
           let session = new Session(this.bot, this.store, this.config, wrapped.sender, () => {
             let sofa = SOFA.parse(wrapped.sofa);
             if (sofa.type != 'Payment') {
-              Logger.receivedMessage(sofa);
+              Logger.receivedMessage(sofa, session.user);
             } else {
-              console.log("NOTICE: Ignoring 'SOFA:Payment' message from chat message: expecting Ethereum Service Notification soon");
+              Logger.debug("Ignoring 'SOFA:Payment' message from chat message: expecting Ethereum Service Notification soon");
             }
 
             if (sofa.type == "Init") {
@@ -97,7 +97,7 @@ class Client {
           });
         }
       } catch(e) {
-        console.log("On Message Error: "+e);
+        Logger.error("On Message Error: " + e);
       }
     });
     this.subscriber.subscribe(this.config.address);
@@ -119,7 +119,6 @@ class Client {
     this.rpcSubscriber.subscribe(this.config.address+JSONRPC_RESPONSE_CHANNEL);
 
     this.eth = new EthService(this.token_id_key);
-    this.id = new IdService(this.token_id_key);
 
     // poll headless client for ready state
     // note: without this, if the eth service returns notifications before
@@ -131,7 +130,7 @@ class Client {
       }, (session, error, result) => {
         if (result) {
           clearInterval(interval);
-          console.log("Headless client ready...");
+          Logger.info("Headless client ready...");
           this.configureServices();
         }
       });
@@ -144,23 +143,26 @@ class Client {
     this.store.getKey('lastTransactionTimestamp').then((last_timestamp) => {
       this.eth.subscribe(this.payment_address_key.address, (raw_sofa) => {
         let sofa = SOFA.parse(raw_sofa);
-        Logger.receivedMessage(sofa);
         let fut;
+        let direction;
         if (sofa.fromAddress == this.payment_address_key.address) {
           // updating a payment sent from the bot
-          fut = this.id.paymentAddressReverseLookup(sofa.toAddress);
+          fut = IdService.paymentAddressReverseLookup(sofa.toAddress);
+          direction = "out";
         } else if (sofa.toAddress == this.payment_address_key.address) {
           // updating a payment sent to the bot
-          fut = this.id.paymentAddressReverseLookup(sofa.fromAddress);
+          fut = IdService.paymentAddressReverseLookup(sofa.fromAddress);
+          direction = "in"
         } else {
           // this isn't actually interesting to us
-          console.log('no matching addresses!');
+          Logger.debug('got payment update for which neither the to or from address match ours!');
           return;
         }
         fut.then((sender) => {
           // TODO: handle null session better?
-          if (!sender) sender = "anonymous";
-          let session = new Session(this.bot, this.store, this.config, sender, () => {
+          if (!sender) sender = {username: "<unknown>", name: "<Unknown>", token_id: "<unknown>"};
+          Logger.receivedPaymentUpdate(sofa, sender, direction);
+          let session = new Session(this.bot, this.store, this.config, sender.token_id, () => {
             if (!session.get('paymentAddress')) {
               session.set('heldForInit', raw_sofa);
               session.reply(SOFA.InitRequest({
@@ -185,7 +187,7 @@ class Client {
     if (typeof message === "string") {
       message = SOFA.Message({body: message})
     }
-    Logger.sentMessage(message);
+    Logger.sentMessage(message, address);
     this.publisher.publish(this.config.address, JSON.stringify({
       sofa: message.string,
       sender: this.config.address,

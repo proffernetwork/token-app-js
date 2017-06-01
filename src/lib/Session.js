@@ -6,6 +6,7 @@ const url = require('url')
 const unit = require('ethjs-unit');
 const SOFA = require('sofa-js');
 const EthService = require('./EthService')
+const IdService = require('./IdService')
 
 class Session {
   constructor(bot, storage, config, address, onReady) {
@@ -129,7 +130,12 @@ class Session {
       if (this.data._state) {
         this.state = this.data._state;
       }
-      onReady();
+      IdService.getUser(this.address)
+        .then((user) => {
+          this.user = user;
+          onReady();
+        })
+        .catch((err) => { console.log(err); });
     });
   }
 
