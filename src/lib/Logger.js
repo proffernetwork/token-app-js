@@ -32,6 +32,7 @@ const _log_levels = {
 };
 
 const LOG_LEVEL = _log_levels[process.env['LOG_LEVEL'] || 'INFO'];
+const ENABLE_TIMESTAMPS = process.env['ENABLE_TIMESTAMPS'];
 
 function formatName(user) {
   if (!user) {
@@ -40,6 +41,14 @@ function formatName(user) {
     return user.name + " (@" + user.username + ")";
   } else {
     return "@" + user.username;
+  }
+}
+
+function getPrefix(k) {
+  if (ENABLE_TIMESTAMPS) {
+    return '[' + k + ': ' + (new Date().toISOString()) + '] ';
+  } else {
+    return '[' + k + '] ';
   }
 }
 
@@ -52,15 +61,15 @@ class Logger {
     if (sofa.type == 'PaymentRequest' && !fiat) { return Fiat.fetch().then((fiat) => { Logger.sentMessage(sofa, user, fiat); }); }
 
     // actual logging
-    Logger.log(Logger.color('\u21D0  ', "Sent '" + sofa.type + "' to " + formatName(user), chalk.green));
+    Logger.info(Logger.color('\u21D0  ', "Sent '" + sofa.type + "' to " + formatName(user), chalk.green));
     if (sofa.type == 'Message') {
-      Logger.log(Logger.color('\u21D0  ', sofa.display, chalk.green));
+      Logger.info(Logger.color('\u21D0  ', sofa.display, chalk.green));
     } else if (sofa.type == 'PaymentRequest') {
-      Logger.log(Logger.color('\u21D0  ', "To address:  " + sofa.destinationAddress, chalk.green));
-      Logger.log(Logger.color('\u21D0  ', "Value (USD): $" + fiat.USD.fromEth(unit.fromWei(sofa.value, 'ether')), chalk.green));
-      Logger.log(Logger.color('\u21D0  ', "Value (ETH): " + unit.fromWei(sofa.value, 'ether'), chalk.green));
+      Logger.info(Logger.color('\u21D0  ', "To address:  " + sofa.destinationAddress, chalk.green));
+      Logger.info(Logger.color('\u21D0  ', "Value (USD): $" + fiat.USD.fromEth(unit.fromWei(sofa.value, 'ether')), chalk.green));
+      Logger.info(Logger.color('\u21D0  ', "Value (ETH): " + unit.fromWei(sofa.value, 'ether'), chalk.green));
     } else {
-      Logger.log(Logger.colorPrefix('\u21D0  ', wrap(sofa.string, {width: 60, cut: true}), chalk.green, chalk.grey));
+      Logger.info(Logger.colorPrefix('\u21D0  ', wrap(sofa.string, {width: 60, cut: true}), chalk.green, chalk.grey));
     }
     Logger.log('\n');
   }
@@ -71,11 +80,11 @@ class Logger {
     if (typeof user == 'string') { return IdService.getUser(user).then((user) => { Logger.receivedMessage(sofa, user); }); }
 
     // actual logging
-    Logger.log(Logger.color('\u21D2  ', "Received '" + sofa.type + "' from " + formatName(user), chalk.yellow));
+    Logger.info(Logger.color('\u21D2  ', "Received '" + sofa.type + "' from " + formatName(user), chalk.yellow));
     if (sofa.type == 'Message') {
-      Logger.log(Logger.color('\u21D2  ', sofa.display, chalk.yellow));
+      Logger.info(Logger.color('\u21D2  ', sofa.display, chalk.yellow));
     } else {
-      Logger.log(Logger.colorPrefix('\u21D2  ', wrap(sofa.string, {width: 60, cut: true}), chalk.yellow, chalk.grey));
+      Logger.info(Logger.colorPrefix('\u21D2  ', wrap(sofa.string, {width: 60, cut: true}), chalk.yellow, chalk.grey));
     }
     Logger.log('\n');
   }
@@ -97,19 +106,12 @@ class Logger {
     let name = formatName(user);
 
     Fiat.fetch().then((fiat) => {
-      Logger.log(Logger.color(icon + '  ', "Payment Update", colour));
-      Logger.log(Logger.color(icon + '  ', header + name, colour));
-      Logger.log(Logger.color(icon + '  ', "Status:        " + sofa.status, colour));
-      Logger.log(Logger.color(icon + '  ', "Value (USD):   $" + fiat.USD.fromEth(unit.fromWei(sofa.value, 'ether')), colour));
-      Logger.log(Logger.color(icon + '  ', "Value (ETH):   " + unit.fromWei(sofa.value, 'ether'), colour));
+      Logger.info(Logger.color(icon + '  ', "Payment Update", colour));
+      Logger.info(Logger.color(icon + '  ', header + name, colour));
+      Logger.info(Logger.color(icon + '  ', "Status:        " + sofa.status, colour));
+      Logger.info(Logger.color(icon + '  ', "Value (USD):   $" + fiat.USD.fromEth(unit.fromWei(sofa.value, 'ether')), colour));
+      Logger.info(Logger.color(icon + '  ', "Value (ETH):   " + unit.fromWei(sofa.value, 'ether'), colour));
     });
-  }
-
-  static error(message) {
-    if (LOG_LEVEL >= _log_levels['ERROR']) {
-      Logger.log(Logger.color('***  ', wrap(message, {width: 60, cut: true}), chalk.red));
-      Logger.log('\n');
-    }
   }
 
   static color(prefix, message, color) {
@@ -122,15 +124,28 @@ class Logger {
     return lines.join('\n');
   }
 
-  static info(message) {
-    if (LOG_LEVEL <= _log_levels['INFO']) {
-      Logger.log(message);
+  static debug(message) {
+    if (LOG_LEVEL <= _log_levels['DEBUG']) {
+      Logger.log(Logger.color(getPrefix('D'), message, chalk.green));
     }
   }
 
-  static debug(message) {
-    if (LOG_LEVEL <= _log_levels['DEBUG']) {
-      Logger.log(message);
+  static info(message) {
+    if (LOG_LEVEL <= _log_levels['INFO']) {
+      Logger.log(Logger.color(getPrefix('I'), message, chalk.green));
+    }
+  }
+
+  static warning(message) {
+    if (LOG_LEVEL <= _log_levels['WARN']) {
+      Logger.log(Logger.color(getPrefix('W'), message, chalk.yellow));
+    }
+  }
+
+  static error(message) {
+    if (LOG_LEVEL >= _log_levels['ERROR']) {
+      Logger.log(Logger.color(getPrefix('E'), wrap(message, {width: 60, cut: true}), chalk.red));
+      Logger.log('\n');
     }
   }
 
