@@ -8,6 +8,9 @@
     },
     "TOKEN_APP_USERNAME": {
       "description": "Choose a username for your app: letters, numbers, and underscores only"
+    },
+    "TOKEN_APP_NAME": {
+      "description": "Choose a display name - all characters allowed"
     }
   },
   "formation": {
