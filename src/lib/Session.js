@@ -5,6 +5,7 @@ const pg = require('pg');
 const url = require('url')
 const unit = require('ethjs-unit');
 const SOFA = require('sofa-js');
+const Fiat = require('./Fiat')
 const EthService = require('./EthService')
 const IdService = require('./IdService')
 
@@ -74,12 +75,32 @@ class Session {
     this.bot.client.send(this.address, message);
   }
 
-  balance(address) {
+  balance(address, fiat_type) {
     if (address) {
-      return EthService.getBalance(address);
+      if (!address.startsWith("0x")) {
+        // assume fiat_type
+        fiat_type = address;
+        address = this.config.paymentAddress;
+      }
     } else {
-      return EthService.getBalance(this.config.paymentAddress);
+      address = this.config.paymentAddress;
     }
+    let getbal = EthService.getBalance(address);
+    if (!fiat_type || fiat_type.toLowerCase() == 'eth') {
+      fiat_type = 'ether';
+    }
+    if (fiat_type.toLowerCase() in unit.unitMap) {
+      return getbal.then((bal) => {
+        return Promise.resolve(unit.fromWei(bal, fiat_type.toLowerCase()));
+      });
+    } else {
+      return getbal.then((bal) => {
+        return Fiat.fetch().then((fiat) => {
+          return Promise.resolve(fiat[fiat_type.toUpperCase()].fromEth(unit.fromWei(bal, 'ether')));
+        });
+      });
+    }
+
   }
 
   sendEth(value, callback) {
