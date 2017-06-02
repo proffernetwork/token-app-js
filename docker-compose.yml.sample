@@ -6,8 +6,6 @@ services:
       - redis
       - postgres
     environment: &environment
-      - TOKEN_APP_ID=
-      - TOKEN_APP_PAYMENT_ADDRESS=
       - TOKEN_APP_USERNAME=
       - TOKEN_APP_NAME=
       - TOKEN_APP_AVATAR=

@@ -104,7 +104,7 @@ class Session {
           status: "unconfirmed",
           value: value,
           txHash: result.txHash,
-          fromAddress: this.config.address,
+          fromAddress: this.config.tokenIdAddress,
           toAddress: this.address
         }));
       }

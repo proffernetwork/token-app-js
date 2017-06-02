@@ -3,7 +3,6 @@ const SOFA = require('sofa-js');
 const Config = require('./Config');
 const Session = require('./Session');
 const Logger = require('./Logger');
-const Wallet = require('./Wallet');
 const EthService = require('./EthService');
 const IdService = require('./IdService');
 const Storage = require('./Storage');
@@ -20,11 +19,8 @@ class Client {
 
     this.config = new Config(process.argv[2]);
 
-    let wallet = new Wallet(process.env["TOKEN_APP_SEED"]);
-    this.token_id_key = wallet.derive_path("m/0'/1/0");
-    this.payment_address_key = wallet.derive_path("m/0'/0/0");
-    console.log("TOKEN ID:", this.token_id_key.address);
-    console.log("PAYMENT ADDRESS KEY:", this.payment_address_key.address);
+    Logger.info("TOKEN ID: " + this.config.tokenIdAddress);
+    Logger.info("PAYMENT ADDRESS KEY: " + this.config.paymentAddress);
 
     if (this.config.storage.postgres) {
       this.store = new Storage.PSQLStore(this.config.storage.postgres);
@@ -55,7 +51,7 @@ class Client {
     this.subscriber.on("message", (channel, message) => {
       try {
         let wrapped = JSON.parse(message);
-        if (wrapped.recipient == this.config.address) {
+        if (wrapped.recipient == this.config.tokenIdAddress) {
           let session = new Session(this.bot, this.store, this.config, wrapped.sender, () => {
             let sofa = SOFA.parse(wrapped.sofa);
             if (sofa.type != 'Payment') {
@@ -100,7 +96,7 @@ class Client {
         Logger.error("On Message Error: " + e);
       }
     });
-    this.subscriber.subscribe(this.config.address);
+    this.subscriber.subscribe(this.config.tokenIdAddress);
 
     this.rpcSubscriber.on("message", (channel, message) => {
       try {
@@ -116,16 +112,16 @@ class Client {
         console.log("On RPC Message Error: "+e);
       }
     });
-    this.rpcSubscriber.subscribe(this.config.address+JSONRPC_RESPONSE_CHANNEL);
+    this.rpcSubscriber.subscribe(this.config.tokenIdAddress+JSONRPC_RESPONSE_CHANNEL);
 
-    this.eth = new EthService(this.token_id_key);
+    this.eth = new EthService(this.config.identityKey);
 
     // poll headless client for ready state
     // note: without this, if the eth service returns notifications before
     // the headless client is ready, the responses generated can be lost
     // in the redis void
     var interval = setInterval(() => {
-      this.rpc({address: this.config.address}, {
+      this.rpc({address: this.config.tokenIdAddress}, {
         method: "ping"
       }, (session, error, result) => {
         if (result) {
@@ -141,15 +137,15 @@ class Client {
   configureServices() {
     // eth service monitoring
     this.store.getKey('lastTransactionTimestamp').then((last_timestamp) => {
-      this.eth.subscribe(this.payment_address_key.address, (raw_sofa) => {
+      this.eth.subscribe(this.config.paymentAddress, (raw_sofa) => {
         let sofa = SOFA.parse(raw_sofa);
         let fut;
         let direction;
-        if (sofa.fromAddress == this.payment_address_key.address) {
+        if (sofa.fromAddress == this.config.paymentAddress) {
           // updating a payment sent from the bot
           fut = IdService.paymentAddressReverseLookup(sofa.toAddress);
           direction = "out";
-        } else if (sofa.toAddress == this.payment_address_key.address) {
+        } else if (sofa.toAddress == this.config.paymentAddress) {
           // updating a payment sent to the bot
           fut = IdService.paymentAddressReverseLookup(sofa.fromAddress);
           direction = "in"
@@ -176,7 +172,7 @@ class Client {
           console.log(err);
         });
 
-        this.store.setKey('lastTransactionTimestamp', this.eth.get_last_message_timestamp(this.payment_address_key.address));
+        this.store.setKey('lastTransactionTimestamp', this.eth.get_last_message_timestamp(this.config.paymentAddress));
       }, last_timestamp);
     }).catch((err) => {
       console.log(err);
@@ -188,9 +184,9 @@ class Client {
       message = SOFA.Message({body: message})
     }
     Logger.sentMessage(message, address);
-    this.publisher.publish(this.config.address, JSON.stringify({
+    this.publisher.publish(this.config.tokenIdAddress, JSON.stringify({
       sofa: message.string,
-      sender: this.config.address,
+      sender: this.config.tokenIdAddress,
       recipient: address
     }));
   }
@@ -198,7 +194,7 @@ class Client {
   rpc(session, rpcCall, callback) {
     rpcCall.id = this.getRpcId();
     this.rpcCalls[rpcCall.id] = {sessionAddress: session.address, callback: callback};
-    this.publisher.publish(this.config.address+JSONRPC_REQUEST_CHANNEL, JSON.stringify(rpcCall));
+    this.publisher.publish(this.config.tokenIdAddress+JSONRPC_REQUEST_CHANNEL, JSON.stringify(rpcCall));
   }
 
   getRpcId() {

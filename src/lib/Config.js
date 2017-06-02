@@ -1,6 +1,7 @@
 const url = require('url');
 const fs = require('fs');
 const yaml = require('js-yaml');
+const Wallet = require('./Wallet');
 
 const required_keys = ['storage', 'redis']
 
@@ -18,9 +19,14 @@ class Config {
     if (this.storage.envKey) { this.storageUrl = process.env[this.storage.envKey]; }
     if (this.redis.uri) { this.redisUrl = this.redis.uri; }
     if (this.redis.envKey) { this.redisUrl = process.env[this.redis.envKey]; }
-    if (!this.address) { this.address = process.env['TOKEN_APP_ID']; }
-    if (!this.paymentAddress) { this.paymentAddress = process.env['TOKEN_APP_PAYMENT_ADDRESS']; }
     if (!this.seedMnemonic) { this.seedMnemonic = process.env['TOKEN_APP_SEED']; }
+
+    let wallet = new Wallet(this.seedMnemonic);
+    this.identityKey = wallet.derive_path("m/0'/1/0");
+    this.paymentKey = wallet.derive_path("m/44'/60'/0'/0/0");
+    this.tokenIdAddress = this.identityKey.address;
+    this.paymentAddress = this.paymentKey.address;
+
   }
 
   set storageUrl(s) {
