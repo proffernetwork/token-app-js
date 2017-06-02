@@ -39,8 +39,10 @@ function formatName(user) {
     return "<Unknown>";
   } else if (user.name) {
     return user.name + " (@" + user.username + ")";
-  } else {
+  } else if (user.username) {
     return "@" + user.username;
+  } else {
+    return "<Unknown>";
   }
 }
 

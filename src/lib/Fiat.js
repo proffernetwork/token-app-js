@@ -8,7 +8,7 @@ let helpers = {}
 let cachedAt = 0
 
 function getRates() {
-  console.log("Fiat: Fetching rates")
+  Logger.info("Fiat: Fetching rates")
   return rp(endpoint)
     .then((body) => {
       cachedAt = new Date().getTime()
@@ -21,7 +21,7 @@ function getRates() {
       return helpers
     })
     .catch((error) => {
-      console.log("Fiat fetch error: " + error)
+      Logger.error("Fiat fetch error: " + error)
     })
 }
 

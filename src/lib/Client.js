@@ -156,10 +156,11 @@ class Client {
         }
         fut.then((sender) => {
           // TODO: handle null session better?
-          if (!sender) sender = {username: "<unknown>", name: "<Unknown>", token_id: "<unknown>"};
+          if (!sender) sender = {};
           Logger.receivedPaymentUpdate(sofa, sender, direction);
           let session = new Session(this.bot, this.store, this.config, sender.token_id, () => {
-            if (!session.get('paymentAddress')) {
+            // first check if the session has a valid user (i.e. it's not from an external source)
+            if (session.user.token_id && !session.get('paymentAddress')) {
               session.set('heldForInit', raw_sofa);
               session.reply(SOFA.InitRequest({
                 values: ['paymentAddress', 'language']

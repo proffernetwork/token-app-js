@@ -6,6 +6,7 @@ const url = require('url')
 const unit = require('ethjs-unit');
 const SOFA = require('sofa-js');
 const Fiat = require('./Fiat')
+const Logger = require('./Logger');
 const EthService = require('./EthService')
 const IdService = require('./IdService')
 
@@ -18,8 +19,8 @@ class Session {
     if (!fs.existsSync(this.config.store)) {
       mkdirp.sync(this.config.store);
     }
-    this.address = address;
-    this.path = this.config.store+'/'+address+'.json';
+
+    this.address = address || "anonymous";
     this.data = {
       address: this.address
     };
@@ -72,6 +73,10 @@ class Session {
   }
 
   reply(message) {
+    if (this.address == "anonymous") {
+      Logger.error("Cannot send messages to anonymous session");
+      return;
+    }
     this.bot.client.send(this.address, message);
   }
 
@@ -109,14 +114,14 @@ class Session {
   }
 
   sendWei(value, callback) {
-    if (this.address == 'anonymous') {
-      if (callback) { callback(this, "Cannot send transactions to anonymous session", null); }
+    if (!this.user.payment_address) {
+      if (callback) { callback(this, "Cannot send transactions to users with no payment address", null); }
       return;
     }
     this.bot.client.rpc(this, {
       method: "sendTransaction",
       params: {
-        to: this.get('paymentAddress'),
+        to: this.user.payment_address,
         value: value
       }
     }, (session, error, result) => {
@@ -126,7 +131,7 @@ class Session {
           value: value,
           txHash: result.txHash,
           fromAddress: this.config.tokenIdAddress,
-          toAddress: this.address
+          toAddress: this.user.payment_address
         }));
       }
       if (callback) { callback(session, error, result); }
@@ -134,6 +139,10 @@ class Session {
   }
 
   requestEth(value, message) {
+    if (!this.user.token_id) {
+      Logger.error("Cannot send transactions to users with no payment address");
+      return;
+    }
     value = '0x' + unit.toWei(value, 'ether').toString(16)
     this.reply(SOFA.PaymentRequest({
       body: message,
@@ -151,12 +160,19 @@ class Session {
       if (this.data._state) {
         this.state = this.data._state;
       }
-      IdService.getUser(this.address)
-        .then((user) => {
-          this.user = user;
-          onReady();
-        })
-        .catch((err) => { console.log(err); });
+      if (this.address != "anonymous") {
+        IdService.getUser(this.address)
+          .then((user) => {
+            this.user = user;
+            onReady();
+          })
+          .catch((err) => {
+            Logger.error("unable to get user details for user: " + this.address)
+          });
+      } else {
+        this.user = {};
+        onReady();
+      }
     });
   }
 
