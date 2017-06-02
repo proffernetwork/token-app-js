@@ -18,7 +18,7 @@ bot.onEvent = function(session, message) {
       onCommand(session, message)
       break
     case 'Payment':
-      onPayment(session)
+      onPayment(session, message)
       break
     case 'PaymentRequest':
       welcome(session)

@@ -22,17 +22,11 @@ rp.Request.prototype.oauth = function(signing_key) {
   this.setHeader('Token-Signature', sig);
 }
 
-class ServiceClient {
-  constructor(signing_key) {
-    this.signing_key = signing_key;
+function fetch(request) {
+  if (typeof request === 'object' && request['sign']) {
+    request.oauth = request['sign'];
   }
-
-  fetch(request) {
-    if (typeof request === 'object' && request['sign'] === true) {
-      request.oauth = this.signing_key;
-    }
-    return rp(request);
-  }
+  return rp(request);
 }
 
-module.exports = ServiceClient;
+module.exports = fetch;
