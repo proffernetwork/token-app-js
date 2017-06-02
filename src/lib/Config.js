@@ -21,6 +21,17 @@ class Config {
     if (this.redis.envKey) { this.redisUrl = process.env[this.redis.envKey]; }
     if (!this.seedMnemonic) { this.seedMnemonic = process.env['TOKEN_APP_SEED']; }
 
+    if (!this.seedMnemonic) {
+      throw new Error(`Missing 'seedMnemonic' in config file: ${path}, or as environment variable TOKEN_APP_SEED`);
+    }
+
+    if ((this.seedMnemonic.startsWith('"') && this.seedMnemonic.endsWith('"')) || (this.seedMnemonic.startsWith("'") && this.seedMnemonic.endsWith("'"))) {
+      this.seedMnemonic = this.seedMnemonic.substring(1, this.seedMnemonic.length - 1);
+    }
+    if (!/^[a-z ]+$/.exec(this.seedMnemonic)) {
+      throw new Error(`Invalid seedMnemonic`);
+    }
+
     let wallet = new Wallet(this.seedMnemonic);
     this.identityKey = wallet.derive_path("m/0'/1/0");
     this.paymentKey = wallet.derive_path("m/44'/60'/0'/0/0");
