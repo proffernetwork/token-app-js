@@ -7,8 +7,7 @@
       "description": "12 word secret backup phrase"
     },
     "TOKEN_APP_USERNAME": {
-      "description": "Choose a username for your app, no spaces",
-      "required": false
+      "description": "Choose a username for your app: letters, numbers, and underscores only"
     }
   },
   "formation": {
