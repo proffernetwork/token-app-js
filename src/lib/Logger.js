@@ -32,7 +32,7 @@ const _log_levels = {
 };
 
 const LOG_LEVEL = _log_levels[process.env['LOG_LEVEL'] || 'INFO'];
-const ENABLE_TIMESTAMPS = process.env['ENABLE_TIMESTAMPS'];
+const ENABLE_TIMESTAMPS = process.env['ENABLE_LOG_TIMESTAMPS'] == "1";
 
 function formatName(user) {
   if (!user) {
