@@ -1,6 +1,6 @@
 # Modified Token App Template
 
-This repo helps you build a [Token app](https://www.tokenbrowser.com) in Javascript. It modifies the app template provided by the tokenbrowser team by adding support for sending base64 image data as an attachment.
+This repo helps you build a [Token app](https://www.tokenbrowser.com) in Javascript. It modifies the app template provided by the tokenbrowser team by adding support for sending base64 image data as an attachment, and for doing server-side image rendering in the bot application code using node-canvas.
 
 The bot built on this template will be able to:
 
