@@ -1,5 +1,5 @@
 {
-  "name": "Sample Token App with Proffer modifications",
+  "name": "Sample Token App",
   "description": "Modified to include base64 image sending and server-side image rendering using node-canvas.",
   "repository": "https://github.com/proffernetwork/token-app-template",
   "env": {
