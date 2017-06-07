@@ -1,7 +1,7 @@
 {
-  "name": "Token Sofa App",
-  "description": "Foundation for building a SOFA app for Token (Chat Bot / Web View)",
-  "repository": "https://github.com/tokenbrowser/token-sofa-app",
+  "name": "Sample Token App with Base64 Image Support",
+  "description": "Foundation for building a SOFA app for Token (Chat Bot / Web View). Modified by Proffer Network to include base64 image sending and server-side node-canvas image rendering support.",
+  "repository": "https://github.com/proffernetwork/token-app-template",
   "env": {
     "TOKEN_APP_SEED": {
       "description": "12 word secret backup phrase"
@@ -29,6 +29,9 @@
     }
   },
   "addons": [
+      {
+        "plan": "mongolab"
+      },
       {
         "plan": "heroku-redis:hobby-dev"
       },{
