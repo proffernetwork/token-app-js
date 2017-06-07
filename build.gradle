@@ -12,6 +12,7 @@ repositories {
 task stage(type: FatCapsule) {
   applicationClass 'com.bakkenbaeck.token.headless.TokenHeadlessClient'
   baseName 'token-headless-client'
+  version = '0.1.2'
 }
 
 dependencies {
