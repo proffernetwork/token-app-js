@@ -1,30 +1,19 @@
-# Token SOFA App
+# Modified Token App Template
 
-This repo helps you build a [Token app](https://www.tokenbrowser.com) in Javascript.
+This repo helps you build a [Token app](https://www.tokenbrowser.com) in Javascript. It modifies the app template provided by the tokenbrowser team by adding support for sending base64 image data as an attachment.
 
-The sample bot can:
+The bot built on this template will be able to:
 
-* send messages
+* send messages as text or image (either by local file url inside the "attachments" folder or a base64 data uri)
 * send and request money
 * create simple UI for buttons and menus
 * store sessions and state for each user
 
-TODO
+## Launch a Heroku app using this template
 
-* sending image messages
-* creating web view UIs
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/proffernetwork/token-app-template)
 
-## Launch your own Token app in 5 minutes
-
-Read our [guide to creating a Token app](http://developers.tokenbrowser.com/docs/creating-a-token-app).
-
-When ready, fork this repo and deploy it to Heroku.
-
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
-
-Then check out [`src/bot.js`](src/bot.js) to start changing the bot logic.
-
-## Running locally with Docker
+## Run app locally with Docker
 
 You can run the project locally with
 
@@ -43,21 +32,6 @@ To reset the postgres database in your dev environment you can use
 ```
 docker-compose down -v
 ```
-
-## Architecture
-
-Deploying a Token app requires a few processes to run:
-
-* **token-headless-client**<br>
-  This is a client we provide (similar to the iOS or Android client) that provides a wrapper around the Token backend services. It also handles end-to-end encrypting all messages using the Signal protocol. It is written in Java and runs in the background, proxying all the requests to amd from your bot.
-* **redis**<br>
-  We use redis pub/sub to provide a connection between the token-headless-client and your bot.
-* **bot.js**<br>
-  This is where all your app logic lives.
-* **postgres**<br>
-  Postgres is used to store session data so you can persist state for each user who talks to your bot (similar to cookies in a web browser).
-
-![diagram](docs/images/app-architecture.png)
 
 ## See also
 
