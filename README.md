@@ -16,6 +16,13 @@ The bot built on this template will be able to:
 
 ## Example: create server-side image and send to Token Bot
 
+Add node-canvas npm module to package.json:
+```
+npm install canvas --save
+```
+
+Then you can put your canvas drawing code anywhere in your bot source files:
+
 ```
 var Canvas = require('canvas')
   , Image = Canvas.Image
