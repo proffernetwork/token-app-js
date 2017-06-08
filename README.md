@@ -14,6 +14,36 @@ The bot built on this template will be able to:
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/proffernetwork/token-app-template)
 
+## Example: create server-side image and send to Token Bot
+
+```
+var Canvas = require('canvas')
+  , Image = Canvas.Image
+  , canvas = new Canvas(200, 200)
+  , ctx = canvas.getContext('2d');
+
+ctx.font = '30px Impact';
+ctx.fillText("Hi Proffer, Hi Token!", 50, 100);
+
+// and then in bot.js, use the built-in message-sending code
+// except no need to pass in the url of a file in the 'attachments' folder
+sendImageMessage(session, canvas.toDataURL(), controls)
+
+// url can either be path of file within 'attachments' or a base64 data uri
+function sendImageMessage(session, imageURL, controls){
+  session.reply(SOFA.Message({
+    showKeyboard: false,
+    controls,
+    attachments: [
+       {
+         "type": "image/jpeg",
+         "url": imageURL
+       }
+    ]
+  }))
+}
+```
+
 ## Run app locally with Docker
 
 You can run the project locally with
@@ -34,29 +64,6 @@ To reset the postgres database in your dev environment you can use
 docker-compose down -v
 ```
 
-## Example: create server-side image and send to Token Bot
-
-```
-var Canvas = require('canvas')
-  , Image = Canvas.Image
-  , canvas = new Canvas(200, 200)
-  , ctx = canvas.getContext('2d');
-
-ctx.font = '30px Impact';
-ctx.fillText("Hi Proffer, Hi Token!", 50, 100);
-
-var te = ctx.measureText('Awesome!');
-ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-ctx.beginPath();
-ctx.lineTo(50, 102);
-ctx.lineTo(50 + te.width, 102);
-ctx.stroke();
-
-// and then in bot.js, use the built-in sendImageMessage function
-// except no need to pass in the url of a file in the 'attachments' folder
-sendImageMessage(session, canvas.toDataURL(), controls)
-```
-
 ## See also
-
+* [https://github.com/Automattic/node-canvas]
 * [https://www.tokenbrowser.com]
